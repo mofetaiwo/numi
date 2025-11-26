@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 // import pages
-import 'mainPage.dart';
-import 'cameraPermission.dart';
-import 'secondPage.dart';
+import 'main_page.dart';
+import 'receipt_scanner/permissions_view.dart';
+import 'second_page.dart';
 
 class AppController extends StatefulWidget {
   const AppController({super.key});
@@ -30,7 +30,7 @@ class _AppController extends State<AppController> {
         
         // Structure: [0] Receipt Scanner, [1] Main Page, [2] Settings
         children: const [
-          CameraPromptPage(),     // Index 0: Swipe RIGHT 
+          PermissionsPage(),     // Index 0: Swipe RIGHT 
           MainPage(),        // Index 1: Main Page
           SecondPage(), // Index 2: Swipe LEFT 
         ],
