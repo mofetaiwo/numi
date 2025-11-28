@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../../models/receipt_model.dart';
 import '../../models/transaction_model.dart'; 
 import '../../repositories/transaction_repository.dart';
-import '../../viewmodels/receipt_scanner_viewmodel.dart';
+import '../../viewmodels/receipt_scanner/receipt_scanner_viewmodel.dart';
 
 
 class ReceiptVerificationPage extends StatelessWidget {

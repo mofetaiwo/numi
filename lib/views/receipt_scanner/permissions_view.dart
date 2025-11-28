@@ -4,7 +4,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'camera_view.dart';
 import 'receipt_verification.dart';
 import '../../models/receipt_model.dart';
-import '../../viewmodels/permissions_viewmodel.dart';
+import '../../viewmodels/receipt_scanner/permissions_viewmodel.dart';
 
 /// This is the page for collecting user permission to access their 
 /// camera and/or photo gallery for the receipt scanning feature. The
@@ -104,7 +104,7 @@ class _PermissionsPageState extends State<PermissionsPage> {
     );
   }
   
-  /// Navigates to receipt verfication page when picture is take or selected and processed
+  /// Navigates to receipt verfication page when picture is taken or selected and processed
   /// to let the user make sure it is correct before adding it to the app
   void _launchReceiptVerification(ReceiptModel receipt) {
     Navigator.push(

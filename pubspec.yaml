@@ -47,6 +47,7 @@ dependencies:
   # Camera & Image
   camera: ^0.10.5
   image_picker: ^1.0.4
+  flutter_tesseract_ocr: ^0.4.20
   
   # Storage
   shared_preferences: ^2.2.2
@@ -97,6 +98,8 @@ flutter:
   assets:
     - assets/images/
     - assets/animations/
+    - assets/tessdata_config.json
+    - assets/tessdata/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

@@ -1,7 +1,7 @@
 // lib/pages/receipt_scanner/camera.dart
 
 import 'package:flutter/material.dart';
-import '../../viewmodels/receipt_scanner_viewmodel.dart';
+import '../../viewmodels/receipt_scanner/receipt_scanner_viewmodel.dart';
 import 'receipt_verification.dart'; 
 import '../../services/receipt_ocr_service.dart';
 import '../../repositories/transaction_repository.dart';
@@ -14,7 +14,7 @@ class CameraViewPage extends StatelessWidget {
   // from the widget tree, not instantiated here.
   ReceiptScannerViewModel _getViewModel(BuildContext context) {
     // Instantiate dependencies locally for this mock setup
-    final ocrService = ReceiptOcrService();
+    final ocrService = TesseractService();
     final transactionRepository = MockTransactionRepository();
     return ReceiptScannerViewModel(ocrService, transactionRepository);
   }
