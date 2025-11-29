@@ -1,3 +1,5 @@
+import 'transaction_model.dart';
+
 class ReceiptModel {
   final String? storeName;
   final double? totalAmount;
@@ -15,17 +17,17 @@ class ReceiptModel {
     this.rawOcrText,
   });
 
-  // Factory constructor to deserialize JSON response from the API
   factory ReceiptModel.fromJson(Map<String, dynamic> json, String imagePath) {
     return ReceiptModel(
       storeName: json['storeName'] as String?,
       totalAmount: (json['totalAmount'] as num?)?.toDouble(),
-      categoryName: json['category'] as String?,
+      // Category is left blank or set to a default, as the user will assign it manually
+      categoryName: null, 
       purchaseDate: json['purchaseDate'] != null
           ? DateTime.tryParse(json['purchaseDate'])
           : null,
       originalImagePath: imagePath,
-      rawOcrText: null, 
+      rawOcrText: null, // No need to store raw OCR text if structured data is parsed
     );
   }
 
@@ -33,11 +35,28 @@ class ReceiptModel {
     return ReceiptModel(
       storeName: 'Processing...',
       totalAmount: 0.0,
-      categoryName: 'other',
+      categoryName: ExpenseCategory.other.toString().split('.').last, // Default to 'other' initially
       purchaseDate: DateTime.now(),
       originalImagePath: imagePath,
       rawOcrText: '',
     );
+  }
+  
+  static ExpenseCategory categoryFromString(String categoryString) {
+    try {
+      // Normalize input string (e.g., 'Groceries' -> 'groceries')
+      final normalized = categoryString.toLowerCase().trim();
+      
+      // Attempt to find the matching enum value
+      return ExpenseCategory.values.firstWhere(
+        (e) => e.toString().split('.').last == normalized,
+        // Default to 'other' if no match is found
+        orElse: () => ExpenseCategory.other,
+      );
+    } catch (e) {
+      // Fallback in case of any unexpected error
+      return ExpenseCategory.other;
+    }
   }
 
   ReceiptModel copyWith({

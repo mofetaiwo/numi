@@ -1,9 +1,7 @@
-// lib/viewmodels/receipt_scanner_viewmodel.dart
-
 import 'package:flutter/foundation.dart';
-import 'package:uuid/uuid.dart'; // Used for generating unique transaction IDs
-import '../../models/receipt_model.dart'; // RawReceiptModel
-import '../../models/transaction_model.dart'; // TransactionModel, ExpenseCategory, TransactionType
+import 'package:uuid/uuid.dart';
+import '../../models/receipt_model.dart';
+import '../../models/transaction_model.dart';
 import '../../repositories/transaction_repository.dart';
 import '../../services/receipt_ocr_service.dart';
 

@@ -1,4 +1,4 @@
-// lib/repositories/transaction_repository.dart
+// REPLACE WITH FIREBASE
 
 import '../models/transaction_model.dart';
 // Note: TransactionModel, TransactionType, and ExpenseCategory must be available here

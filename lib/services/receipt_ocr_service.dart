@@ -6,150 +6,214 @@ import 'package:path_provider/path_provider.dart';
 import '../models/receipt_model.dart';
 
 class TesseractService {
-  // --- Tesseract Configuration ---
+    static const String _language = 'eng';
+    static const String _languageDataPath = 'assets/tessdata/$_language.traineddata';
+    
+    static bool _isInitialized = false;
+    static String? _tessDataPath;
 
-  static const String _language = 'eng';
-  static const String _languageDataPath = 'assets/tessdata/$_language.traineddata';
-  
-  // A variable to track if the language data has been initialized
-  static bool _isInitialized = false;
-  // NEW: Variable to store the explicit path where the trained data lives
-  static String? _tessDataPath;
+    /// Loads the Tessract training data for English
+    Future<String> initializeTesseract() async {
+        if (_isInitialized && _tessDataPath != null) {
+            return _tessDataPath!;
+        }
 
-  // --- Initialization Method ---
+        try {
+            final dir = await getApplicationDocumentsDirectory();
+            final tessdataDir = Directory('${dir.path}/tessdata');
+            if (!await tessdataDir.exists()) {
+                await tessdataDir.create(recursive: true);
+            }
+            
+            final filePath = '${tessdataDir.path}/$_language.traineddata';
+            
+            if (!await File(filePath).exists()) {
+                final data = await rootBundle.load(_languageDataPath);
+                final bytes = data.buffer.asUint8List();
 
-  /// Ensures the Tesseract language data file is copied from assets 
-  /// to the application's documents directory where Tesseract can access it.
-  Future<String> initializeTesseract() async {
-    if (_isInitialized && _tessDataPath != null) {
-      return _tessDataPath!; // Return stored path if already initialized
+                await File(filePath).writeAsBytes(bytes);
+            }
+            
+            _tessDataPath = tessdataDir.path;
+            _isInitialized = true;
+            return _tessDataPath!;
+
+        } catch (e) {
+            print('Error initializing Tesseract: $e');
+            // Clear path on failure
+            _tessDataPath = null; 
+            throw Exception('Failed to initialize Tesseract data files. Check assets/tessdata/ folder: $e');
+        }
     }
+
+    /// Runs Tesseract OCR on a given image file path.
+    Future<String> runOcr(String imagePath) async {
+    // debugPrint('--- OCR Service: Starting runOcr function ---'); 
+    // debugPrint('Input imagePath: $imagePath'); 
+
+    String? dataPath;
 
     try {
-      // 1. Get the application's documents directory
-      final dir = await getApplicationDocumentsDirectory();
-      final tessdataDir = Directory('${dir.path}/tessdata');
-      if (!await tessdataDir.exists()) {
-        await tessdataDir.create(recursive: true);
-      }
-      
-      final filePath = '${tessdataDir.path}/$_language.traineddata';
-      
-      // 2. Check if the file already exists to avoid unnecessary copy
-      if (!await File(filePath).exists()) {
-        // 3. Load the file bytes from assets
-        final data = await rootBundle.load(_languageDataPath);
-        final bytes = data.buffer.asUint8List();
+        // Attempt initialization
+        dataPath = await initializeTesseract();
+        
+        // Check for initialization failure
+        if (dataPath == "") {
+            // debugPrint('!!! ERROR: Tesseract initialization returned NULL dataPath.');
+            throw Exception('Tesseract initialization failed to provide a valid data path.');
+        }
 
-        // 4. Write the bytes to the documents directory
-        await File(filePath).writeAsBytes(bytes);
-      }
-      
-      _tessDataPath = tessdataDir.path; // Store the successful path
-      _isInitialized = true;
-      return _tessDataPath!; // Return the path where the language data is located
+      //  debugPrint('TESSDATA_PREFIX (dataPath): $dataPath'); 
 
-    } catch (e) {
-      print('Error initializing Tesseract: $e');
-      // Clear path on failure
-      _tessDataPath = null; 
-      throw Exception('Failed to initialize Tesseract data files. Check assets/tessdata/ folder: $e');
+        final String result = await FlutterTesseractOcr.extractText(
+            imagePath,
+            language: _language,
+            args: {
+                "psm": "6",
+                "TESSDATA_PREFIX": dataPath,
+            }
+        );
+
+        // debugPrint('OCR SUCCESS. Extracted Text (first 50 chars): ${result.substring(0, result.length < 50 ? result.length : 50)}'); 
+        return result;
+
+    } catch (e, stack) {
+        // debugPrint('!!! CRITICAL OCR FAILURE !!!');
+        // debugPrint('Exception: $e');
+        // debugPrint('StackTrace: $stack');
+        
+       throw Exception('OCR Operation Failed: $e');
     }
-  }
-
-  // --- OCR Execution Method ---
-
-  /// Runs Tesseract OCR on a given image file path.
-  Future<String> runOcr(String imagePath) async {
-  // --- STEP 1: Log Function Entry ---
-  // If you see this, the function was called.
-  debugPrint('--- OCR Service: Starting runOcr function ---'); 
-  debugPrint('Input imagePath: $imagePath'); 
-
-  String? dataPath;
-
-  try {
-    // Attempt initialization
-    dataPath = await initializeTesseract();
-    
-    // Check for initialization failure
-    if (dataPath == null) {
-      debugPrint('!!! ERROR: Tesseract initialization returned NULL dataPath.');
-      throw Exception('Tesseract initialization failed to provide a valid data path.');
-    }
-
-    // --- STEP 2: Your original missing log line ---
-    // If you see this, initialization succeeded.
-    debugPrint('TESSDATA_PREFIX (dataPath): $dataPath'); 
-
-    // --- STEP 3: Execute OCR ---
-    final String result = await FlutterTesseractOcr.extractText(
-      imagePath,
-      language: _language,
-      args: {
-        "psm": "6",
-        "TESSDATA_PREFIX": dataPath,
-      }
-    );
-
-    // --- STEP 4: Log Success ---
-    debugPrint('OCR SUCCESS. Extracted Text (first 50 chars): ${result.substring(0, result.length < 50 ? result.length : 50)}'); 
-    return result;
-
-  } catch (e, stack) {
-    // --- STEP 5: Log ANY Failure ---
-    debugPrint('!!! CRITICAL OCR FAILURE !!!');
-    debugPrint('Exception: $e');
-    debugPrint('StackTrace: $stack');
-    
-    // Re-throw the exception so the caller knows the operation failed
-    throw Exception('OCR Operation Failed: $e');
-  }
 }
 
-  // --- Data Parsing Method ---
+    /// Takes the raw OCR text and attempts to parse it into a structured ReceiptModel.
+    ReceiptModel parseOcrResult(String ocrText, String originalPath) {
+        // Basic text cleanup and splitting
+        final cleanedText = ocrText.replaceAll(RegExp(r'[^\w\s\$\.\:]'), ' ').toUpperCase();
+        final lines = cleanedText.split('\n').map((line) => line.trim()).where((line) => line.isNotEmpty).toList();
 
-  /// Takes the raw OCR text and attempts to parse it into a structured ReceiptModel.
-  ReceiptModel parseOcrResult(String ocrText, String originalPath) {
-    // Basic text cleanup and splitting
-    final cleanedText = ocrText.replaceAll(RegExp(r'[^\w\s\$\.\:]'), ' ').toUpperCase();
-    final lines = cleanedText.split('\n').map((line) => line.trim()).toList();
+        double? totalAmount;
+        // Enhanced regex to handle common OCR mistakes like O for 0, A for 4, and common total prefixes
+        final totalRegex = RegExp(r'(TOTAL|AMOUNT DUE|BALANCE|T[O0][T][A4][L]|SUM)\s*[:\$]?\s*(\d+[\.,]\d{2})');
+        
+        for (var line in lines.reversed) { // Start from the bottom of the receipt
+            final match = totalRegex.firstMatch(line);
+            if (match != null) {
+                // Replace comma with dot if locale uses comma for decimal separator
+                final amountString = match.group(2)?.replaceAll(',', '.'); 
+                totalAmount = double.tryParse(amountString ?? '');
+                if (totalAmount != null) break;
+            }
+        }
+        
+        String storeName = 'Unknown Vendor';
+        double bestScore = -1.0; 
+        
+        // Aggressive Regex to check for common non-vendor lines (dates, addresses, phone numbers, employee/txn IDs, noise)
+        final aggressiveNonVendorRegex = RegExp(
+            r'(\d{4}[-\/]\d{2}[-\/]\d{2})|' + // Date format
+            r'(\d{5})|' + // 5-digit zip code
+            r'(PHONE|TEL|FAX|VAT|TAX ID|WWW|STREET|AVENUE|ROAD|BLVD|AVE|ST|BACK|RECEIPT|CASHIER|MANAGER|ORDER|TRANSACTION|ID|OP|CUST|VISA|MASTERCARD)' // Added many noise keywords
+        );
 
-    // --- Parsing Logic ---
-    
-    // 1. Find Total Amount (most critical)
-    double? totalAmount;
-    // Enhanced regex to handle common OCR mistakes like O for 0, A for 4, and common total prefixes
-    final totalRegex = RegExp(r'(TOTAL|AMOUNT DUE|BALANCE|T[O0][T][A4][L]|SUM)\s*[:\$]?\s*(\d+[\.,]\d{2})');
-    
-    for (var line in lines.reversed) { // Start from the bottom of the receipt
-      final match = totalRegex.firstMatch(line);
-      if (match != null) {
-        // Replace comma with dot if locale uses comma for decimal separator
-        final amountString = match.group(2)?.replaceAll(',', '.'); 
-        totalAmount = double.tryParse(amountString ?? '');
-        if (totalAmount != null) break;
-      }
-    }
-    
-    // 2. Find Store Name (simple mock for demonstration)
-    String storeName = 'Unknown Vendor';
-    if (lines.isNotEmpty) {
-        // Assume the first few lines are header/store info, ignore purely numeric lines
-        storeName = lines.take(5).firstWhere(
-            (line) => line.length > 5 && !RegExp(r'^\d+[\.\,]?\d*$').hasMatch(line), // Exclude lines that are just numbers (like totals)
-            orElse: () => 'OCR Vendor'
+        // Regex to detect likely junk/serial numbers (single word, high letters, but no spaces)
+        final junkWordRegex = RegExp(r'^\w{6,20}$'); // 6 to 20 letters/digits, no spaces
+
+        if (lines.isNotEmpty) {
+            // Search the footer for a "Thank You" message
+            final thankYouRegex = RegExp(r'THANK YOU (FOR SHOPPING AT|AT) (.*)');
+            
+            // Check the last 5 lines for the thank you message
+            final footerLines = lines.sublist(lines.length > 5 ? lines.length - 5 : 0).toList();
+
+            for (var line in footerLines) {
+                final match = thankYouRegex.firstMatch(line);
+                if (match != null) {
+                    // Extract the text after the "SHOPPING AT" or "AT"
+                    final extractedName = match.group(2)?.trim();
+                    if (extractedName != null && extractedName.length > 2) {
+                        storeName = extractedName.replaceAll(RegExp(r'[^\w\s]'), ' ').trim();
+                        bestScore = 1.0; // Mark as highly confident
+                        break;
+                    }
+                }
+            }
+
+            // If no store name was found in the footer, score the top lines
+            if (bestScore < 0.0) {
+                String bestCandidate = '';
+                int bestCandidateIndex = -1;
+
+                // Score the top 10 lines for best text density
+                for (int i = 0; i < lines.length && i < 10; i++) {
+                    final line = lines[i];
+
+                    // Heuristics Check:
+                    // 1. Must be reasonably long (> 4 characters) and contain letters
+                    // 2. Must not match known noise patterns
+                    // 3. Must not be a single long junk word (like DBANAMA)
+                    if (line.length > 4 
+                        && line.contains(RegExp(r'[A-Z]')) 
+                        && !aggressiveNonVendorRegex.hasMatch(line)
+                        && !junkWordRegex.hasMatch(line)
+                    ) {
+                        
+                        // Calculate score: Ratio of letters to total length
+                        final letterCount = line.replaceAll(RegExp(r'[^A-Z]'), '').length;
+                        final score = letterCount / line.length;
+
+                        // Prioritize candidates with a high text density (score > 0.5)
+                        if (score > 0.5 && score > bestScore) {
+                            bestScore = score;
+                            bestCandidate = line.trim();
+                            bestCandidateIndex = i;
+                        }
+                    }
+                }
+                
+                // If a high-scoring candidate is found, attempt concatenation
+                if (bestScore > 0.5) {
+                    storeName = bestCandidate;
+
+                    // Attempt concatenation only if the best candidate index is valid and there's a next line
+                    if (bestCandidateIndex != -1 && bestCandidateIndex + 1 < lines.length && bestCandidateIndex + 1 < 10) {
+                        final nextLine = lines[bestCandidateIndex + 1];
+                        final combinedLine = '$bestCandidate $nextLine';
+                        
+                        // Recalculate score for the combined line
+                        final combinedLetterCount = combinedLine.replaceAll(RegExp(r'[^A-Z]'), '').length;
+                        final combinedScore = combinedLetterCount / combinedLine.length;
+
+                        // Check if the next line is also clean and the combined score is better than or equal to the single line score
+                        // We also check length to prevent merging a good name with a huge address block
+                        if (nextLine.length > 3 
+                            && !aggressiveNonVendorRegex.hasMatch(nextLine) 
+                            && combinedLine.length < 35 
+                            && combinedScore >= bestScore
+                        ) {
+                            storeName = combinedLine.trim();
+                        }
+                    }
+
+                } else if (lines.first.length > 5 && lines.first.contains(RegExp(r'[A-Z]'))) {
+                    // Fallback: use the very first line if all other filtering failed
+                    storeName = lines.first;
+                }
+            }
+            
+            // Final cleanup: remove all non-word/space chars (like pipes) from the edges
+            storeName = storeName.replaceAll(RegExp(r'[^\w\s]'), ' ').trim();
+        }
+
+        debugPrint('Raw OCR Text:\n$ocrText');
+        debugPrint('Extracted Store Name: $storeName'); // Log the extracted name
+
+        // Create the Receipt Model
+        return ReceiptModel(
+            storeName: storeName,
+            totalAmount: totalAmount,
+            originalImagePath: originalPath,
+            rawOcrText: ocrText, // Keep raw text for debugging/verification
         );
     }
-
-    debugPrint('Raw OCR Text:\n$ocrText');
-
-    // 3. Create the Receipt Model
-    return ReceiptModel(
-      storeName: storeName,
-      totalAmount: totalAmount,
-      originalImagePath: originalPath,
-      rawOcrText: ocrText, // Keep raw text for debugging/verification
-    );
-  }
 }

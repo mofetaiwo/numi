@@ -36,7 +36,6 @@ class PermissionsViewModel extends ChangeNotifier {
     super.dispose();
   }
 
-  // Override notifyListeners to check the flag
   @override
   void notifyListeners() {
     if (!_isDisposed) {
@@ -44,7 +43,6 @@ class PermissionsViewModel extends ChangeNotifier {
     }
   }
 
-  /// Checks initial permissions
   Future<PermissionActionOutcome> checkInitialPermissions() async {
     _isCheckingPermissions = true;
     notifyListeners();
@@ -58,14 +56,13 @@ class PermissionsViewModel extends ChangeNotifier {
         notifyListeners();
     }
 
-    // If camera is granted, suggest auto-launching (if the view handles it)
+    /// Checks and Requests permission from the user to use the camera
     if (cameraStatus.isGranted) {
       return PermissionActionOutcome.granted;
     }
     return PermissionActionOutcome.permissionDenied;
   }
 
-  /// Requests or confirms Camera permission and returns the outcome.
   Future<PermissionActionOutcome> requestCameraPermission() async {
     PermissionStatus status = await Permission.camera.status;
 
@@ -73,7 +70,6 @@ class PermissionsViewModel extends ChangeNotifier {
       return PermissionActionOutcome.granted;
     }
 
-    // Request permission if not granted
     PermissionStatus newStatus = await Permission.camera.request();
 
     if (newStatus.isGranted) {
@@ -86,23 +82,18 @@ class PermissionsViewModel extends ChangeNotifier {
     }
   }
 
-  /// Requests or confirms Gallery permission and launches the picker if successful.
-  /// If an image is selected, it mocks the OCR result and prepares the ReceiptModel.
+  /// Checks or requests permission from the user to access their camera roll
   Future<PermissionActionOutcome> handleGallerySelection() async {
     PermissionStatus status = await Permission.photos.status;
 
-    // 1. Check if permission is already sufficient
     if (!(status.isGranted || status.isLimited)) {
-      // Check for permanent blocks before attempting a request
       if (status.isPermanentlyDenied || status.isRestricted) {
         return PermissionActionOutcome.permanentlyDenied;
       }
 
-      // Request permission
       status = await Permission.photos.request();
     }
 
-    // 2. Handle the result of the permission request
     if (status.isGranted || status.isLimited) {
       return _uploadPicture();
     } else if (status.isPermanentlyDenied || status.isRestricted) {
@@ -113,7 +104,7 @@ class PermissionsViewModel extends ChangeNotifier {
     }
   }
   
-  /// Launches the image picker, mocks OCR, and sets the selectedReceipt state.
+  /// Launches the image picker, OCR, and sets the selectedReceipt state
   Future<PermissionActionOutcome> _uploadPicture() async {
     try {
       final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
@@ -122,13 +113,10 @@ class PermissionsViewModel extends ChangeNotifier {
         try {
         final imagePath = image.path;
 
-        // Ensure Tesseract is initialized (if the image picker is the first action)
         await _ocrService.initializeTesseract(); 
-
-        // 3. Run OCR using the selected image path
         final rawOcrText = await _ocrService.runOcr(imagePath);
 
-        // 4. Parse the OCR result into ReceiptModel
+        // Parse the OCR result into ReceiptModel
         _selectedReceipt = _ocrService.parseOcrResult(rawOcrText, imagePath);
 
         notifyListeners();
