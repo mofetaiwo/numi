@@ -47,6 +47,7 @@ dependencies:
   # Camera & Image
   camera: ^0.10.5
   image_picker: ^1.0.4
+  flutter_tesseract_ocr: ^0.4.20
   
   # Storage
   shared_preferences: ^2.2.2
@@ -56,9 +57,12 @@ dependencies:
   uuid: ^4.2.1
   pdf: ^3.10.7
   path_provider: ^2.1.1
+
+  # Permissions
+  permission_handler: ^11.3.1
   
   # Hardware
-  vibration: ^1.8.4
+  # vibration: ^1.8.4
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
@@ -94,6 +98,8 @@ flutter:
   assets:
     - assets/images/
     - assets/animations/
+    - assets/tessdata_config.json
+    - assets/tessdata/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
@@ -121,9 +127,9 @@ flutter:
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
 
-  fonts:
-    - family: Poppins
-      fonts:
-        - asset: fonts/Poppins-Regular.ttf
-        - asset: fonts/Poppins-Bold.ttf
-          weight: 700
+  # fonts:
+  #   - family: Poppins
+  #     fonts:
+  #       - asset: fonts/Poppins-Regular.ttf
+  #       - asset: fonts/Poppins-Bold.ttf
+  #         weight: 700
