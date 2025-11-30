@@ -16,10 +16,14 @@ enum PermissionActionOutcome {
 /// ViewModel for handling camera and photo gallery access permissions
 class PermissionsViewModel extends ChangeNotifier {
   final ImagePicker _picker = ImagePicker();
-  final TesseractService _ocrService = TesseractService();
+  // Using the injected service for Tesseract operations
+  final TesseractService _ocrService = TesseractService(); 
 
   bool _isCheckingPermissions = true;
   bool get isCheckingPermissions => _isCheckingPermissions;
+
+  bool _isProcessing = false; // State for showing OCR loading overlay
+  bool get isProcessing => _isProcessing;
 
   // Observable state for the selected ReceiptModel (used after OCR processing)
   ReceiptModel? _selectedReceipt;
@@ -43,61 +47,109 @@ class PermissionsViewModel extends ChangeNotifier {
     }
   }
 
-  Future<PermissionActionOutcome> checkInitialPermissions() async {
-    _isCheckingPermissions = true;
+  void _setProcessing(bool value) {
+    _isProcessing = value;
     notifyListeners();
-
-    final cameraStatus = await Permission.camera.status;
-    await Permission.photos.status;
-
-    _isCheckingPermissions = false;
-    
-    if (!_isDisposed) {
-        notifyListeners();
-    }
-
-    /// Checks and Requests permission from the user to use the camera
-    if (cameraStatus.isGranted) {
-      return PermissionActionOutcome.granted;
-    }
-    return PermissionActionOutcome.permissionDenied;
   }
 
+  /// Sets the initial state of the receipt to 'Processing...' before starting
+  /// any OCR operation.
+  void setInitialProcessingState(String imagePath) {
+    _selectedReceipt = ReceiptModel.empty(imagePath);
+    notifyListeners();
+  }
+
+  void clearProcessingState() {
+    _selectedReceipt = null;
+    _isProcessing = false;
+    _errorMessage = null;
+    notifyListeners();
+  }
+
+  /// Requests or checks the current Camera permission status.
+  /// This is the dedicated method for the PermissionsPage to call.
   Future<PermissionActionOutcome> requestCameraPermission() async {
     PermissionStatus status = await Permission.camera.status;
 
-    if (status.isGranted) {
-      return PermissionActionOutcome.granted;
+    // Request if not granted
+    if (!status.isGranted) {
+      status = await Permission.camera.request();
     }
 
-    PermissionStatus newStatus = await Permission.camera.request();
-
-    if (newStatus.isGranted) {
+    if (status.isGranted) {
       return PermissionActionOutcome.granted;
-    } else if (newStatus.isPermanentlyDenied) {
+    } else if (status.isPermanentlyDenied || status.isRestricted) {
+      _errorMessage = 'Camera access permanently denied. Please enable in settings.';
       return PermissionActionOutcome.permanentlyDenied;
     } else {
-      _errorMessage = 'Camera access denied.';
+      _errorMessage = 'Camera access denied. Cannot use live scanner.';
       return PermissionActionOutcome.permissionDenied;
     }
   }
 
-  /// Checks or requests permission from the user to access their camera roll
-  Future<PermissionActionOutcome> handleGallerySelection() async {
+  /// Checks the initial camera permission state upon entering the page.
+  /// It requests the permission if it's currently denied.
+  Future<PermissionActionOutcome> checkInitialPermissions() async {
+    _isCheckingPermissions = true;
+    notifyListeners();
+    
+    // Use the dedicated method for the check/request
+    final result = await requestCameraPermission();
+
+    _isCheckingPermissions = false;
+    notifyListeners();
+    
+    return result;
+  }
+
+  /// Handles the camera capture file path and runs the OCR process.
+  Future<PermissionActionOutcome> runOcrOnCapture(String imagePath) async {
+    _setProcessing(true);
+    _errorMessage = null;
+    try {
+      // 1. Set initial processing state (showing 'Processing...' on next screen)
+      setInitialProcessingState(imagePath);
+      
+      // 2. Initialize Tesseract
+      await _ocrService.initializeTesseract(); 
+      
+      // 3. Run OCR
+      final rawOcrText = await _ocrService.runOcr(imagePath);
+
+      // 4. Parse the OCR result into ReceiptModel
+      _selectedReceipt = _ocrService.parseOcrResult(rawOcrText, imagePath);
+
+      _setProcessing(false);
+      return PermissionActionOutcome.granted;
+
+    } catch (e) {
+      _errorMessage = 'Error during OCR: ${e.toString()}';
+      _selectedReceipt = null;
+      _setProcessing(false);
+      return PermissionActionOutcome.error;
+    }
+  }
+
+  /// Checks gallery permission, launches the image picker, and runs the OCR process.
+  Future<PermissionActionOutcome> requestGalleryPermissionAndUpload() async {
+    _errorMessage = null;
+    
+    // Check current Photos/Gallery status
     PermissionStatus status = await Permission.photos.status;
 
-    if (!(status.isGranted || status.isLimited)) {
-      if (status.isPermanentlyDenied || status.isRestricted) {
-        return PermissionActionOutcome.permanentlyDenied;
-      }
-
+    // Request if not granted/limited
+    if (!status.isGranted && !status.isLimited) {
       status = await Permission.photos.request();
+    }
+
+    if (status.isPermanentlyDenied || status.isRestricted) {
+      // Inform view
+      _errorMessage = 'Photo Gallery access permanently denied.';
+      return PermissionActionOutcome.permanentlyDenied;
     }
 
     if (status.isGranted || status.isLimited) {
       return _uploadPicture();
-    } else if (status.isPermanentlyDenied || status.isRestricted) {
-      return PermissionActionOutcome.permanentlyDenied;
     } else {
       _errorMessage = 'Photo Gallery access denied.';
       return PermissionActionOutcome.permissionDenied;
@@ -106,31 +158,31 @@ class PermissionsViewModel extends ChangeNotifier {
   
   /// Launches the image picker, OCR, and sets the selectedReceipt state
   Future<PermissionActionOutcome> _uploadPicture() async {
+    _setProcessing(true);
     try {
       final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
 
       if (image != null) {
-        try {
         final imagePath = image.path;
-
-        await _ocrService.initializeTesseract(); 
-        final rawOcrText = await _ocrService.runOcr(imagePath);
-
-        // Parse the OCR result into ReceiptModel
-        _selectedReceipt = _ocrService.parseOcrResult(rawOcrText, imagePath);
-
-        notifyListeners();
-        return PermissionActionOutcome.granted;
-      } catch (e) {
-        return PermissionActionOutcome.error;
-      }
+        
+        // Use the existing OCR logic
+        return runOcrOnCapture(imagePath);
 
       } else {
+        // User cancelled image selection
         _errorMessage = 'No image selected.';
+        _selectedReceipt = null;
+        _setProcessing(false); // Stop processing if selection cancelled
+        notifyListeners();
         return PermissionActionOutcome.selectionCancelled;
       }
+
     } catch (e) {
-      _errorMessage = 'Error selecting image: $e';
+      // General failure during image picking
+      _errorMessage = 'Image selection failed: ${e.toString()}';
+      _selectedReceipt = null;
+      _setProcessing(false); // Stop processing on error
+      notifyListeners();
       return PermissionActionOutcome.error;
     }
   }

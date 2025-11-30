@@ -19,13 +19,18 @@ class PermissionsPage extends StatefulWidget {
 }
 
 class _PermissionsPageState extends State<PermissionsPage> {
+  // Instantiate the VM once
   final PermissionsViewModel _viewModel = PermissionsViewModel(); 
+  
+  // State variable to track the last determined permission outcome
+  PermissionActionOutcome? _lastOutcome;
 
   @override
   void initState() {
     super.initState();
     _viewModel.addListener(_onViewModelChanged);
     
+    // Check permissions immediately after the first frame is built
     SchedulerBinding.instance.addPostFrameCallback((_) {
       _initialPermissionCheck();
     });
@@ -39,315 +44,199 @@ class _PermissionsPageState extends State<PermissionsPage> {
   }
   
   void _onViewModelChanged() {
-    setState(() {});
+    // Rebuild UI to reflect changes in loading or error state
+    setState(() {}); 
   }
 
+  /// Initial check for camera permission, which dictates the next screen.
   Future<void> _initialPermissionCheck() async {
-    await _viewModel.checkInitialPermissions();
-  }
+    // Check and request camera permission
+    final result = await _viewModel.checkInitialPermissions();
 
-  /// When user presses "Take Photo" button
-  Future<void> _handleCameraTap() async {
-    final outcome = await _viewModel.requestCameraPermission();
     if (!mounted) return;
+    
+    // Set the outcome state to drive the UI in the build method
+    setState(() {
+      _lastOutcome = result;
+    });
 
-    switch (outcome) {
+    switch (result) {
       case PermissionActionOutcome.granted:
-        _launchCamera(context);
+        // Permission granted, proceed to the camera view, passing the viewModel
+        _navigateToCamera();
         break;
       case PermissionActionOutcome.permanentlyDenied:
-        _showSettingsPrompt(context, 'Camera');
-        break;
       case PermissionActionOutcome.permissionDenied:
-        _showSnackbar(_viewModel.errorMessage ?? 'Camera access denied.', isSuccess: false);
-        break;
-      default:
-        // No action needed for other states here
-    }
-  }
-
-  /// When user clicks "Upload from Photo Gallery" button
-  Future<void> _handleGalleryTap() async {
-    final outcome = await _viewModel.handleGallerySelection();
-    if (!mounted) return;
-
-    switch (outcome) {
-      case PermissionActionOutcome.granted:
-        /// If Photo is found, process it into the app
-        if (_viewModel.selectedReceipt != null) {
-          _launchReceiptVerification(_viewModel.selectedReceipt as ReceiptModel);
-        } else {
-          _showSnackbar('File selection successful, but data is missing.', isSuccess: false);
-        }
-        break;
-      case PermissionActionOutcome.permanentlyDenied:
-        _showSettingsPrompt(context, 'Photo Gallery');
-        break;
-      case PermissionActionOutcome.permissionDenied:
-        _showSnackbar(_viewModel.errorMessage ?? 'Photo Gallery access denied.', isSuccess: false);
-        break;
-      case PermissionActionOutcome.selectionCancelled:
-        _showSnackbar('Photo selection cancelled.', isSuccess: false);
-        break;
       case PermissionActionOutcome.error:
-        _showSnackbar(_viewModel.errorMessage ?? 'An unknown error occurred during selection.', isSuccess: false);
+      case PermissionActionOutcome.selectionCancelled:
+        // For all other outcomes, the build method will render the appropriate denial/request UI.
         break;
     }
   }
 
-  // NAVIGATION LOGIC
-  /// Launches camera when user clicks "Take Photo" and permission is granted
-  void _launchCamera(BuildContext context) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const CameraViewPage()), 
-    );
-  }
+  // --- NAVIGATION HANDLERS ---
   
-  /// Navigates to receipt verfication page when picture is taken or selected and processed
-  /// to let the user make sure it is correct before adding it to the app
-  void _launchReceiptVerification(ReceiptModel receipt) {
-    Navigator.push(
-      context,
+  /// Navigates to the live camera view.
+  void _navigateToCamera() {
+    Navigator.of(context).pushReplacement(
       MaterialPageRoute(
-        builder: (context) => ReceiptVerificationPage(receiptData: receipt),
+        // FIX: Passing the active ViewModel instance
+        builder: (context) => CameraViewPage(viewModel: _viewModel), 
       ),
     );
   }
 
-  /// If camera or photo gallery permissions are not granted, the user can input the details
-  /// of their receipt manually with this
-  void _launchManualInput(BuildContext context) {
-    // Navigator.push(
-    //   context,
-    //   MaterialPageRoute(
-    //     builder: (context) => ReceiptVerificationPage(receiptData: ReceiptModel.empty('Manual Input')),
-    //   ),
-    // );
+  /// Navigates to the manual entry screen.
+  void _navigateToManualEntry() {
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (context) => ReceiptVerificationPage(
+            // Pass an empty receipt model for manual data entry
+            receiptData: ReceiptModel.empty('manual_entry')), 
+      ),
+    );
   }
 
-  // UI METHODS
-  /// This dialog box appears if permission is denied. It gives the user the option to go
-  /// into settings and grant permissions to use the automatic receipt scanner or to 
-  /// manually add the receipt.
-  void _showSettingsPrompt(BuildContext context, String resourceName) {
+  // --- UI STATE BUILDERS ---
+  
+  // State 1: Loading/Checking Permissions
+  Widget _buildLoadingView(ColorScheme colorScheme) {
+    return _buildCentralView(
+      colorScheme,
+      title: 'Checking Permissions',
+      subtitle: 'Preparing receipt scanner and checking existing permissions.',
+      isLoading: true,
+      button: Container(), // No button during loading
+    );
+  }
+
+  // State 2: Requesting Permission (Not permanently denied)
+  Widget _buildPermissionRequestView() {
     final colorScheme = Theme.of(context).colorScheme;
     
-    // content of widget
-    showDialog(
-      context: context,
-      builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          
-          title: Column(
-            children: [
-              Icon(
-                Icons.no_photography_rounded,
-                size: 40,
-                color: colorScheme.error,
-              ),
-              const SizedBox(height: 12),
-              Text(
-                '$resourceName Access Blocked',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: colorScheme.onSurface,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ],
+    // If there's an error message, show it below the main text
+    final currentSubtitle = _viewModel.errorMessage ?? 
+      'We need camera permission to scan your receipts automatically. You can still enter receipts manually.';
+
+    return _buildCentralView(
+      colorScheme,
+      title: 'Enable Camera Access',
+      subtitle: currentSubtitle,
+      isLoading: false,
+      button: Column(
+        children: [
+          ElevatedButton.icon(
+            onPressed: () async {
+              // Attempt to request permission again
+              final result = await _viewModel.requestCameraPermission();
+              
+              if (!mounted) return;
+              
+              if (result == PermissionActionOutcome.granted) {
+                _navigateToCamera();
+              } else if (result == PermissionActionOutcome.permanentlyDenied) {
+                // Update state to render the permanent denial view
+                setState(() => _lastOutcome = PermissionActionOutcome.permanentlyDenied);
+              } else {
+                _showSnackbar(_viewModel.errorMessage ?? 'Camera access denied.');
+                setState(() => _lastOutcome = result); // Rebuild to show updated message
+              }
+            },
+            icon: const Icon(Icons.photo_camera),
+            label: const Text('Grant Camera Access'),
           ),
-          
-          content: Text(
-            'Permission is required for the Receipt Scanner feature to work. Please open settings to enable access, or choose to enter your receipt details manually.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: colorScheme.onSurfaceVariant,
-              fontSize: 15,
-            ),
+          const SizedBox(height: 16),
+          TextButton(
+            onPressed: _navigateToManualEntry,
+            child: const Text('Enter Receipt Manually'),
           ),
-          
-          // Aligning content of widget
-          actions: <Widget>[
-            // Secondary action (TextButton)
+        ],
+      ),
+    );
+  }
+
+  // State 3: Permanently Denied or Feature Unavailable (Fallback to Manual)
+  Widget _buildPermissionDeniedView(String message) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return _buildCentralView(
+      colorScheme,
+      title: 'Scanner Unavailable',
+      subtitle: message,
+      isLoading: false,
+      button: Column(
+        children: [
+          // Only show 'Open App Settings' if the denial is permanent
+          if (_lastOutcome == PermissionActionOutcome.permanentlyDenied) ...[
             TextButton(
-              onPressed: () {
-                Navigator.of(dialogContext).pop();
-                _launchManualInput(context);
-              },
-              child: const Text('Manual Input'),
+              onPressed: () => openAppSettings(),
+              child: const Text('Open App Settings'),
             ),
-            
-            // Primary action (ElevatedButton)
-            ElevatedButton(
-              onPressed: () {
-                Navigator.of(dialogContext).pop();
-                openAppSettings();
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: colorScheme.primary,
-                foregroundColor: colorScheme.onPrimary,
-                elevation: 4,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              ),
-              child: const Text('Open Settings'),
-            ),
+            const SizedBox(height: 16),
           ],
-          contentPadding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
-          titlePadding: const EdgeInsets.only(top: 24, left: 24, right: 24),
-          actionsPadding: const EdgeInsets.all(16),
-        );
-      },
+          ElevatedButton(
+            onPressed: _navigateToManualEntry,
+            child: const Text('Enter Receipt Manually'),
+          ),
+        ],
+      ),
     );
   }
   
-  /// Snackbar shown at the botton of the screen to alert the user of messages such as errors.
-  /// Changes color (green or red) according if the message is a success or an error
-  void _showSnackbar(String message, {bool isSuccess = false}) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final Color backgroundColor = isSuccess ? Colors.green.shade700 : colorScheme.error;
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        duration: const Duration(seconds: 4),
-        backgroundColor: backgroundColor,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      ),
-    );
+  // Generic snackbar helper
+  void _showSnackbar(String message) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
+      );
+    }
   }
 
-  // MAIN BUILD METHOD
+  // --- MASTER BUILDER ---
+  
   @override
   Widget build(BuildContext context) {
-    if (_viewModel.isCheckingPermissions) {
-      return const _ReceiptScannerLoading(title: 'Checking Permissions');
-    }
-
     final colorScheme = Theme.of(context).colorScheme;
 
+    if (_viewModel.isCheckingPermissions || _lastOutcome == null) {
+      return _buildLoadingView(colorScheme);
+    } 
+    
+    switch (_lastOutcome!) {
+      case PermissionActionOutcome.granted:
+        // This case should be handled by navigation in _initialPermissionCheck
+        // but as a fallback, show loading.
+        return _buildLoadingView(colorScheme);
+        
+      case PermissionActionOutcome.permanentlyDenied:
+        return _buildPermissionDeniedView('Camera access permanently denied. Please enable in settings.');
+        
+      case PermissionActionOutcome.error:
+        return _buildPermissionDeniedView(_viewModel.errorMessage ?? 'Scanner feature is temporarily unavailable due to an error.');
+
+      case PermissionActionOutcome.permissionDenied:
+      case PermissionActionOutcome.selectionCancelled:
+        // Show the view that prompts the user to grant permission or use manual entry
+        return _buildPermissionRequestView();
+    }
+  }
+
+  // Scaffold Template Builder
+  Widget _buildCentralView(
+    ColorScheme colorScheme, {
+    required String title,
+    String? subtitle,
+    required bool isLoading,
+    required Widget button,
+  }) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: colorScheme.surface,
-        elevation: 0,
+        title: const Text('Receipt Scanner Setup'),
+        automaticallyImplyLeading: false, // Prevent back button
       ),
-      body: Container(
-        // surface color for slight contrast from default
-        color: colorScheme.surface, 
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(32.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Visual Header
-                ShaderMask(
-                  shaderCallback: (bounds) {
-                    return LinearGradient(
-                      colors: [colorScheme.primary, colorScheme.tertiary],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ).createShader(bounds);
-                  },
-                  child: const Icon(
-                    Icons.receipt_long,
-                    size: 96,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 32),
-
-                // Text
-                Text(
-                  'Capture Your Receipt',
-                  style: TextStyle(
-                    fontSize: 34,
-                    fontWeight: FontWeight.w900,
-                    color: colorScheme.onSurface,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  'Use the camera for instant capture or upload an existing image to log your expense.',
-                  style: TextStyle(
-                    fontSize: 17,
-                    color: colorScheme.onSurface,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 60),
-
-                // Camera Button (Primary Action)
-                ElevatedButton.icon(
-                  onPressed: _handleCameraTap,
-                  icon: const Icon(Icons.photo_camera_rounded, size: 28),
-                  label: const Text(
-                    'Take Photo',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: colorScheme.primary,
-                    foregroundColor: colorScheme.onPrimary,
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                    minimumSize: const Size(double.infinity, 60),
-                    elevation: 6,
-                  ),
-                ),
-                const SizedBox(height: 20),
-
-                // Photo Gallery Button (Secondary Action)
-                OutlinedButton.icon(
-                  onPressed: _handleGalleryTap,
-                  icon: const Icon(Icons.photo_library_rounded, size: 28),
-                  label: const Text(
-                    'Upload from Photo Gallery',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: colorScheme.primary,
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                    side: BorderSide(color: colorScheme.primary, width: 2),
-                    minimumSize: const Size(double.infinity, 60),
-                  ),
-                ),
-                
-                // Manual Entry Button (Third Action)
-                const SizedBox(height: 20),
-                TextButton(
-                  onPressed: () => _launchManualInput(context),
-                  child: Text(
-                    'Manual Entry',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: colorScheme.primary,
-                      decoration: TextDecoration.underline,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// Loading Receipt Scanner Widget
-class _ReceiptScannerLoading extends StatelessWidget {
-  final String title;
-  const _ReceiptScannerLoading({this.title = 'Checking Scanner Status'});
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Scaffold(
       body: Container(
         color: colorScheme.background,
         child: Center(
@@ -356,7 +245,11 @@ class _ReceiptScannerLoading extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.cached, size: 80, color: colorScheme.secondary),
+                Icon(
+                  isLoading ? Icons.cached : Icons.lock_outline, 
+                  size: 80, 
+                  color: colorScheme.secondary
+                ),
                 const SizedBox(height: 24),
                 Text(
                   title,
@@ -367,22 +260,27 @@ class _ReceiptScannerLoading extends StatelessWidget {
                   ),
                   textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 16),
-                LinearProgressIndicator(
-                  minHeight: 8,
-                  borderRadius: BorderRadius.circular(4),
-                  backgroundColor: colorScheme.secondaryContainer,
-                  color: colorScheme.secondary,
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Preparing receipt scanner and checking existing permissions.',
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: colorScheme.onBackground.withOpacity(0.7),
+                if (subtitle != null) ...[
+                  const SizedBox(height: 16),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: colorScheme.onBackground.withOpacity(0.7),
+                    ),
+                    textAlign: TextAlign.center,
                   ),
-                  textAlign: TextAlign.center,
-                ),
+                ],
+                const SizedBox(height: 32),
+                if (isLoading)
+                  LinearProgressIndicator(
+                    minHeight: 8,
+                    borderRadius: BorderRadius.circular(4),
+                    backgroundColor: colorScheme.secondaryContainer,
+                    color: colorScheme.secondary,
+                  )
+                else
+                  button,
               ],
             ),
           ),
