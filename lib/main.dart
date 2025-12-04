@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
 import 'views/app_controller.dart';
+import 'screens/home_screen.dart';
+import 'screens/transactions_screen.dart';
+import 'screens/add_transaction_screen.dart';
+import 'screens/analytics_screen.dart';
+
 
 void main() {
   runApp(const MyApp());
