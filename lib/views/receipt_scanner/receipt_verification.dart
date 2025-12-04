@@ -252,7 +252,7 @@ class _ReceiptVerificationFormState extends State<_ReceiptVerificationForm> {
   
   Widget _buildCategoryDropdown(ThemeData theme, List<String> categoryNames) {
     return DropdownButtonFormField<String>(
-      value: _selectedCategory,
+      initialValue: _selectedCategory,
       decoration: InputDecoration(
         label: RichText(
           text: TextSpan(

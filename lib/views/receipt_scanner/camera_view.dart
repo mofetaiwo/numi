@@ -1,14 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart'; 
-import 'package:path/path.dart' as p; 
-import 'package:path_provider/path_provider.dart'; 
-import 'package:provider/provider.dart';
-import 'permissions_view.dart';
 import 'receipt_verification.dart'; 
 import '../../viewmodels/receipt_scanner/permissions_viewmodel.dart';
 import '../../models/receipt_model.dart'; 
 
-/// Renders the live camera view and handles the photo capture logic.
+/// Renders the live camera view and handles the photo capture
 class CameraViewPage extends StatefulWidget {
   // The PermissionsViewModel is passed from the PermissionsPage
   // and holds the state and logic for OCR processing.
@@ -29,7 +25,6 @@ class _CameraViewPageState extends State<CameraViewPage> with WidgetsBindingObse
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    // Listen to the ViewModel for processing status changes
     widget.viewModel.addListener(_onViewModelChanged); 
     _initializeCamera();
   }
@@ -43,7 +38,6 @@ class _CameraViewPageState extends State<CameraViewPage> with WidgetsBindingObse
   }
   
   void _onViewModelChanged() {
-    // Rebuild the UI when the VM's state (like isProcessing) changes
     setState(() {});
     
     // Check if processing is done and we have a receipt to navigate
@@ -57,7 +51,6 @@ class _CameraViewPageState extends State<CameraViewPage> with WidgetsBindingObse
   // Reinitialize camera when app resumes
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    // App state logic to handle camera pause/resume
     if (!_isCameraReady) return;
     if (_controller == null) return;
     
@@ -98,6 +91,8 @@ class _CameraViewPageState extends State<CameraViewPage> with WidgetsBindingObse
         _isCameraReady = false;
       });
     }
+
+    await _controller!.initialize();
   }
 
   /// Handles the image capture and triggers the OCR process via the ViewModel.
@@ -108,14 +103,9 @@ class _CameraViewPageState extends State<CameraViewPage> with WidgetsBindingObse
     }
 
     try {
-      // 1. Take the picture
       final XFile image = await _controller!.takePicture();
       
-      // 2. Set processing state and run OCR via the ViewModel
-      // The ViewModel will handle setting isProcessing=true and calling notifyListeners()
-      await widget.viewModel.runOcrOnCapture(image.path); 
-      
-      // Navigation is now handled by _onViewModelChanged after processing completes
+     await widget.viewModel.runOcrOnCapture(image.path); 
       
     } on CameraException catch (e) {
       _showSnackbar('Capture error: ${e.code}');
@@ -124,7 +114,7 @@ class _CameraViewPageState extends State<CameraViewPage> with WidgetsBindingObse
     }
   }
 
-  /// Displays a Snackbar with an error message.
+  /// Displays a Snackbar with an error message if an error occurs.
   void _showSnackbar(String message) {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -157,7 +147,7 @@ class _CameraViewPageState extends State<CameraViewPage> with WidgetsBindingObse
         children: [
           CircularProgressIndicator(color: colorScheme.secondary),
           const SizedBox(height: 20),
-          Text(
+          const Text(
             'Scanning Receipt...',
             style: TextStyle(
               color: Colors.white,
@@ -195,14 +185,12 @@ class _CameraViewPageState extends State<CameraViewPage> with WidgetsBindingObse
           return Stack(
             fit: StackFit.expand,
             children: [
-              // 1. Live Camera Preview
               CameraPreview(_controller!),
 
-              // 2. Focus/Overlay Guide (Optional: for better UX)
               Center(
                 child: Container(
                   width: MediaQuery.of(context).size.width * 0.9,
-                  height: MediaQuery.of(context).size.height * 0.4,
+                  height: MediaQuery.of(context).size.height * 0.8,
                   decoration: BoxDecoration(
                     border: Border.all(color: Colors.yellow, width: 3),
                     borderRadius: BorderRadius.circular(12),
@@ -226,7 +214,6 @@ class _CameraViewPageState extends State<CameraViewPage> with WidgetsBindingObse
                 ),
               ),
 
-              // 3. Capture Button
               Align(
                 alignment: Alignment.bottomCenter,
                 child: Padding(
@@ -240,7 +227,6 @@ class _CameraViewPageState extends State<CameraViewPage> with WidgetsBindingObse
                 ),
               ),
               
-              // 4. Processing Overlay (Conditional)
               if (widget.viewModel.isProcessing) 
                 _buildProcessingOverlay(colorScheme),
             ],
