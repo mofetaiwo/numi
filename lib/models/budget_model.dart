@@ -34,7 +34,7 @@ class BudgetModel {
       id: doc.id,
       userId: data['userId'],
       category: ExpenseCategory.values.firstWhere(
-        (e) => e.toString() == 'ExpenseCategory.${data['category']}',
+            (e) => e.toString() == 'ExpenseCategory.${data['category']}',
         orElse: () => ExpenseCategory.other,
       ),
       limit: (data['limit'] ?? 0.0).toDouble(),

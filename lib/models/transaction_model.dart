@@ -49,11 +49,11 @@ class TransactionModel {
       currency: data['currency'] ?? 'USD',
       description: data['description'] ?? '',
       category: ExpenseCategory.values.firstWhere(
-        (e) => e.toString() == 'ExpenseCategory.${data['category']}',
+            (e) => e.toString() == 'ExpenseCategory.${data['category']}',
         orElse: () => ExpenseCategory.other,
       ),
       type: TransactionType.values.firstWhere(
-        (e) => e.toString() == 'TransactionType.${data['type']}',
+            (e) => e.toString() == 'TransactionType.${data['type']}',
         orElse: () => TransactionType.expense,
       ),
       date: (data['date'] as Timestamp).toDate(),

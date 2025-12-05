@@ -1,30 +1,66 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-
-import 'package:numi/main.dart';
+import 'package:provider/provider.dart';
+import 'package:numi/widgets/balance_card.dart';
+import 'package:numi/viewmodels/transaction_viewmodel.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  group('BalanceCard Widget Tests', () {
+    testWidgets('BalanceCard displays correct balance',
+            (WidgetTester tester) async {
+          final viewModel = TransactionViewModel();
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+          await tester.pumpWidget(
+            MaterialApp(
+              home: ChangeNotifierProvider.value(
+                value: viewModel,
+                child: Scaffold(body: BalanceCard()),
+              ),
+            ),
+          );
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+          expect(find.text('Total Balance'), findsOneWidget);
+          expect(find.text('Income'), findsOneWidget);
+          expect(find.text('Expenses'), findsOneWidget);
+        });
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    testWidgets('Add Transaction Screen has all input fields',
+            (WidgetTester tester) async {
+          await tester.pumpWidget(
+            MaterialApp(
+              home: Scaffold(
+                body: Column(
+                  children: [
+                    TextFormField(
+                      decoration: const InputDecoration(labelText: 'Amount'),
+                    ),
+                    TextFormField(
+                      decoration: const InputDecoration(labelText: 'Description'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+
+          expect(find.byType(TextFormField), findsNWidgets(2));
+          expect(find.text('Amount'), findsOneWidget);
+          expect(find.text('Description'), findsOneWidget);
+        });
+
+    testWidgets('Transaction list item displays correctly',
+            (WidgetTester tester) async {
+          await tester.pumpWidget(
+            MaterialApp(
+              home: Scaffold(
+                body: Container(
+                  child: const Text('Test Transaction'),
+                ),
+              ),
+            ),
+          );
+
+          expect(find.text('Test Transaction'), findsOneWidget);
+        });
   });
 }

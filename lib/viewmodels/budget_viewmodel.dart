@@ -1,131 +1,131 @@
-// import 'package:flutter/foundation.dart';
-// import '../models/budget_model.dart';
-// import '../models/transaction_model.dart';
-// import '../services/firebase_service.dart';
+import 'package:flutter/foundation.dart';
+import '../models/budget_model.dart';
+import '../models/transaction_model.dart';
+import '../services/firebase_service.dart';
 
-// class BudgetViewModel extends ChangeNotifier {
-//   final FirebaseService _firebaseService;
-  
-//   List<BudgetModel> _budgets = [];
-//   bool _isLoading = false;
-//   String? _error;
+class BudgetViewModel extends ChangeNotifier {
+  final FirebaseService _firebaseService;
 
-//   BudgetViewModel({FirebaseService? firebaseService})
-//       : _firebaseService = firebaseService ?? FirebaseService() {
-//     loadBudgets();
-//   }
+  List<BudgetModel> _budgets = [];
+  bool _isLoading = false;
+  String? _error;
 
-//   // Getters
-//   List<BudgetModel> get budgets => _budgets;
-//   bool get isLoading => _isLoading;
-//   String? get error => _error;
-//   bool get hasError => _error != null;
-//   bool get isEmpty => _budgets.isEmpty && !_isLoading;
+  BudgetViewModel({FirebaseService? firebaseService})
+      : _firebaseService = firebaseService ?? FirebaseService() {
+    loadBudgets();
+  }
 
-//   double get totalBudgetLimit {
-//     return _budgets.fold(0.0, (sum, budget) => sum + budget.limit);
-//   }
+  // Getters
+  List<BudgetModel> get budgets => _budgets;
+  bool get isLoading => _isLoading;
+  String? get error => _error;
+  bool get hasError => _error != null;
+  bool get isEmpty => _budgets.isEmpty && !_isLoading;
 
-//   double get totalBudgetSpent {
-//     return _budgets.fold(0.0, (sum, budget) => sum + budget.spent);
-//   }
+  double get totalBudgetLimit {
+    return _budgets.fold(0.0, (sum, budget) => sum + budget.limit);
+  }
 
-//   List<BudgetModel> get overBudgetCategories {
-//     return _budgets.where((budget) => budget.isOverBudget).toList();
-//   }
+  double get totalBudgetSpent {
+    return _budgets.fold(0.0, (sum, budget) => sum + budget.spent);
+  }
 
-//   // Load budgets
-//   void loadBudgets() {
-//     _isLoading = true;
-//     _error = null;
-//     notifyListeners();
+  List<BudgetModel> get overBudgetCategories {
+    return _budgets.where((budget) => budget.isOverBudget).toList();
+  }
 
-//     _firebaseService.getBudgetsStream().listen(
-//       (budgets) {
-//         _budgets = budgets;
-//         _isLoading = false;
-//         _error = null;
-//         notifyListeners();
-//       },
-//       onError: (error) {
-//         _error = error.toString();
-//         _isLoading = false;
-//         notifyListeners();
-//       },
-//     );
-//   }
+  // Load budgets
+  void loadBudgets() {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
 
-//   // Add budget
-//   Future<void> addBudget({
-//     required ExpenseCategory category,
-//     required double limit,
-//     String period = 'monthly',
-//   }) async {
-//     try {
-//       _isLoading = true;
-//       notifyListeners();
+    _firebaseService.getBudgetsStream().listen(
+          (budgets) {
+        _budgets = budgets;
+        _isLoading = false;
+        _error = null;
+        notifyListeners();
+      },
+      onError: (error) {
+        _error = error.toString();
+        _isLoading = false;
+        notifyListeners();
+      },
+    );
+  }
 
-//       DateTime now = DateTime.now();
-//       DateTime startDate = DateTime(now.year, now.month, 1);
-//       DateTime endDate = DateTime(now.year, now.month + 1, 0);
+  // Add budget
+  Future<void> addBudget({
+    required ExpenseCategory category,
+    required double limit,
+    String period = 'monthly',
+  }) async {
+    try {
+      _isLoading = true;
+      notifyListeners();
 
-//       final budget = BudgetModel(
-//         id: DateTime.now().millisecondsSinceEpoch.toString(),
-//         userId: _firebaseService.userId ?? '',
-//         category: category,
-//         limit: limit,
-//         period: period,
-//         startDate: startDate,
-//         endDate: endDate,
-//       );
+      DateTime now = DateTime.now();
+      DateTime startDate = DateTime(now.year, now.month, 1);
+      DateTime endDate = DateTime(now.year, now.month + 1, 0);
 
-//       await _firebaseService.addBudget(budget);
-      
-//       _isLoading = false;
-//       notifyListeners();
-//     } catch (e) {
-//       _error = 'Failed to add budget: $e';
-//       _isLoading = false;
-//       notifyListeners();
-//     }
-//   }
+      final budget = BudgetModel(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        userId: _firebaseService.userId ?? '',
+        category: category,
+        limit: limit,
+        period: period,
+        startDate: startDate,
+        endDate: endDate,
+      );
 
-//   // Update budget
-//   Future<void> updateBudget(BudgetModel budget) async {
-//     try {
-//       _isLoading = true;
-//       notifyListeners();
+      await _firebaseService.addBudget(budget);
 
-//       await _firebaseService.updateBudget(budget);
-      
-//       _isLoading = false;
-//       notifyListeners();
-//     } catch (e) {
-//       _error = 'Failed to update budget: $e';
-//       _isLoading = false;
-//       notifyListeners();
-//     }
-//   }
+      _isLoading = false;
+      notifyListeners();
+    } catch (e) {
+      _error = 'Failed to add budget: $e';
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
 
-//   // Get budget for category
-//   BudgetModel? getBudgetForCategory(ExpenseCategory category) {
-//     try {
-//       return _budgets.firstWhere((budget) => budget.category == category);
-//     } catch (e) {
-//       return null;
-//     }
-//   }
+  // Update budget
+  Future<void> updateBudget(BudgetModel budget) async {
+    try {
+      _isLoading = true;
+      notifyListeners();
 
-//   // Check if over budget
-//   bool isOverBudgetForCategory(ExpenseCategory category) {
-//     BudgetModel? budget = getBudgetForCategory(category);
-//     return budget?.isOverBudget ?? false;
-//   }
+      await _firebaseService.updateBudget(budget);
 
-//   // Get budget progress
-//   double getBudgetProgress(ExpenseCategory category) {
-//     BudgetModel? budget = getBudgetForCategory(category);
-//     if (budget == null) return 0.0;
-//     return (budget.percentageUsed * 100).clamp(0, 100);
-//   }
-// }
+      _isLoading = false;
+      notifyListeners();
+    } catch (e) {
+      _error = 'Failed to update budget: $e';
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  // Get budget for category
+  BudgetModel? getBudgetForCategory(ExpenseCategory category) {
+    try {
+      return _budgets.firstWhere((budget) => budget.category == category);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // Check if over budget
+  bool isOverBudgetForCategory(ExpenseCategory category) {
+    BudgetModel? budget = getBudgetForCategory(category);
+    return budget?.isOverBudget ?? false;
+  }
+
+  // Get budget progress
+  double getBudgetProgress(ExpenseCategory category) {
+    BudgetModel? budget = getBudgetForCategory(category);
+    if (budget == null) return 0.0;
+    return (budget.percentageUsed * 100).clamp(0, 100);
+  }
+}

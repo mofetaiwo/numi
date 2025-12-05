@@ -1,23 +1,52 @@
 import 'package:flutter/material.dart';
-import 'views/app_controller.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:provider/provider.dart';
+import 'viewmodels/transaction_viewmodel.dart';
+import 'viewmodels/budget_viewmodel.dart';
+import 'services/firebase_service.dart';
+import 'views/splash_screen.dart';
+import 'utils/theme.dart';
 
-void main() {
-  runApp(const MyApp());
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  try {
+    await Firebase.initializeApp();
+    print('Firebase initialized successfully');
+  } catch (e) {
+    print('Firebase initialization failed: $e');
+  }
+
+  runApp(MyApp());
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
-
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Numi Personal Finance',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple, primary: const Color(0xFF673AB7)),
-        useMaterial3: true,
-        fontFamily: 'Roboto',
+    return MultiProvider(
+      providers: [
+        Provider<FirebaseService>(
+          create: (_) => FirebaseService(),
+        ),
+        ChangeNotifierProvider<TransactionViewModel>(
+          create: (context) => TransactionViewModel(
+            firebaseService: context.read<FirebaseService>(),
+          ),
+        ),
+        ChangeNotifierProvider<BudgetViewModel>(
+          create: (context) => BudgetViewModel(
+            firebaseService: context.read<FirebaseService>(),
+          ),
+        ),
+      ],
+      child: MaterialApp(
+        title: 'Finance Tracker',
+        theme: AppTheme.lightTheme,
+        darkTheme: AppTheme.darkTheme,
+        themeMode: ThemeMode.system,
+        home: SplashScreen(),
+        debugShowCheckedModeBanner: false,
       ),
-      home: const AppController(),
     );
   }
 }
