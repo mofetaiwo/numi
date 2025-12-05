@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'camera_view.dart';
 import 'receipt_verification.dart'; 
@@ -25,11 +24,6 @@ class _PermissionsPageState extends State<PermissionsPage> {
   void initState() {
     super.initState();
     _viewModel.addListener(_onViewModelChanged);
-    
-    // Check permissions immediately after the first frame is built
-    SchedulerBinding.instance.addPostFrameCallback((_) {
-      _initialPermissionCheck();
-    });
   }
   
   @override
@@ -41,10 +35,6 @@ class _PermissionsPageState extends State<PermissionsPage> {
   
   void _onViewModelChanged() {
     setState(() {});
-  }
-
-  Future<void> _initialPermissionCheck() async {
-    await _viewModel.checkInitialPermissions();
   }
 
   /// When user presses "Take Photo" button
@@ -132,31 +122,72 @@ class _PermissionsPageState extends State<PermissionsPage> {
   }
 
   void _showSettingsPrompt(BuildContext context, String resourceName) {
+    final colorScheme = Theme.of(context).colorScheme;
+    
+    // content of widget
     showDialog(
       context: context,
-      builder: (BuildContext context) {
-        final colorScheme = Theme.of(context).colorScheme;
+      builder: (BuildContext dialogContext) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15.0)),
-          title: Text('$resourceName Access Required', style: TextStyle(color: colorScheme.error)),
-          content: Text(
-            'We need access to your $resourceName to scan receipts. Please enable permission in settings or upload your receipt manually.',
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          
+          title: Column(
+            children: [
+              Icon(
+                Icons.no_photography_rounded,
+                size: 40,
+                color: colorScheme.error,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                '$resourceName Access Blocked',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: colorScheme.onSurface,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
           ),
-          actions: <Widget>[
-            TextButton(
-              child: const Text('Cancel'),
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
+          
+          content: Text(
+            'Permission is required for the Receipt Scanner feature to work. Please open settings to enable access, or choose to enter your receipt details manually.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: colorScheme.onSurfaceVariant,
+              fontSize: 15,
             ),
+          ),
+          
+          // Aligning content of widget
+          actions: <Widget>[
+            // Secondary action (TextButton)
             TextButton(
-              child: Text('Open Settings', style: TextStyle(color: colorScheme.primary)),
               onPressed: () {
-                openAppSettings();
-                Navigator.of(context).pop();
+                Navigator.of(dialogContext).pop();
+                _navigateToManualEntry(context);
               },
+              child: const Text('Manual Input'),
+            ),
+            
+            // Primary action (ElevatedButton)
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+                openAppSettings();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: colorScheme.primary,
+                foregroundColor: colorScheme.onPrimary,
+                elevation: 4,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              ),
+              child: const Text('Open Settings'),
             ),
           ],
+          contentPadding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+          titlePadding: const EdgeInsets.only(top: 24, left: 24, right: 24),
+          actionsPadding: const EdgeInsets.all(16),
         );
       },
     );
@@ -164,10 +195,6 @@ class _PermissionsPageState extends State<PermissionsPage> {
 
   @override
   Widget build(BuildContext context) {
-    // Show loading indicator while the initial check is running
-    if (_viewModel.isCheckingPermissions) {
-      return const _ReceiptScannerLoading(title: 'Checking Permissions');
-    }
 
     final colorScheme = Theme.of(context).colorScheme;
 
@@ -204,16 +231,7 @@ class _PermissionsPageState extends State<PermissionsPage> {
               ElevatedButton.icon(
                 onPressed: _handleCameraTap,
                 icon: const Icon(Icons.photo_camera, size: 28),
-                label: const Text('Take Photo', style: TextStyle(fontSize: 18)),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: colorScheme.primary,
-                  foregroundColor: colorScheme.onPrimary,
-                  elevation: 6,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
-                ),
+                label: const Text('Take Photo', style: TextStyle(fontSize: 18))
               ),
               const SizedBox(height: 16),
 
@@ -243,71 +261,7 @@ class _PermissionsPageState extends State<PermissionsPage> {
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
               ),
-
-              // ViewModel Error Display
-              if (_viewModel.errorMessage != null && !_viewModel.isCheckingPermissions)
-                Padding(
-                  padding: const EdgeInsets.only(top: 20.0),
-                  child: Text(
-                    'Error: ${_viewModel.errorMessage}',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: colorScheme.error),
-                  ),
-                ),
             ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// Loading widget for when _checkingPermissions is true
-class _ReceiptScannerLoading extends StatelessWidget {
-  final String title;
-  const _ReceiptScannerLoading({required this.title});
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Scaffold(
-      body: Container(
-        color: colorScheme.surface,
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(40.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.cached, size: 80, color: colorScheme.secondary),
-                const SizedBox(height: 24),
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    color: colorScheme.onSurface,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 16),
-                LinearProgressIndicator(
-                  minHeight: 8,
-                  borderRadius: BorderRadius.circular(4),
-                  backgroundColor: colorScheme.secondaryContainer,
-                  color: colorScheme.secondary,
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Preparing receipt scanner and checking existing permissions.',
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: colorScheme.onSurface.withValues(),
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ),
           ),
         ),
       ),

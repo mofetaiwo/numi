@@ -48,6 +48,7 @@ dependencies:
   camera: ^0.10.5
   image_picker: ^1.0.4
   flutter_tesseract_ocr: ^0.4.20
+  image: ^4.1.7
   
   # Storage
   shared_preferences: ^2.2.2

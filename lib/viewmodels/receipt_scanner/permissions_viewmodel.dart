@@ -19,9 +19,6 @@ class PermissionsViewModel extends ChangeNotifier {
   // Using the injected service for Tesseract operations
   final TesseractService _ocrService = TesseractService(); 
 
-  bool _isCheckingPermissions = true;
-  bool get isCheckingPermissions => _isCheckingPermissions;
-
   bool _isProcessing = false; // State for showing OCR loading overlay
   bool get isProcessing => _isProcessing;
 
@@ -36,7 +33,7 @@ class PermissionsViewModel extends ChangeNotifier {
 
   @override
   void dispose() {
-    _isDisposed = true; // Set the flag when disposed
+    _isDisposed = true;
     super.dispose();
   }
 
@@ -87,36 +84,18 @@ class PermissionsViewModel extends ChangeNotifier {
     }
   }
 
-  /// Checks the initial camera permission state upon entering the page.
-  /// It requests the permission if it's currently denied.
-  Future<PermissionActionOutcome> checkInitialPermissions() async {
-    _isCheckingPermissions = true;
-    notifyListeners();
-    
-    // Use the dedicated method for the check/request
-    final result = await requestCameraPermission();
-
-    _isCheckingPermissions = false;
-    notifyListeners();
-    
-    return result;
-  }
-
   /// Handles the camera capture file path and runs the OCR process.
   Future<PermissionActionOutcome> runOcrOnCapture(String imagePath) async {
     _setProcessing(true);
     _errorMessage = null;
     try {
-      // 1. Set initial processing state (showing 'Processing...' on next screen)
+      // Set initial processing state (showing 'Processing...' on next screen)
       setInitialProcessingState(imagePath);
       
-      // 2. Initialize Tesseract
       await _ocrService.initializeTesseract(); 
       
-      // 3. Run OCR
+      // Run OCR
       final rawOcrText = await _ocrService.runOcr(imagePath);
-
-      // 4. Parse the OCR result into ReceiptModel
       _selectedReceipt = _ocrService.parseOcrResult(rawOcrText, imagePath);
 
       _setProcessing(false);
@@ -143,7 +122,6 @@ class PermissionsViewModel extends ChangeNotifier {
     }
 
     if (status.isPermanentlyDenied || status.isRestricted) {
-      // Inform view
       _errorMessage = 'Photo Gallery access permanently denied.';
       return PermissionActionOutcome.permanentlyDenied;
     }
@@ -165,7 +143,6 @@ class PermissionsViewModel extends ChangeNotifier {
       if (image != null) {
         final imagePath = image.path;
         
-        // Use the existing OCR logic
         return runOcrOnCapture(imagePath);
 
       } else {

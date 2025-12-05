@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'views/app_controller.dart';
+import 'utils/theme.dart';
 
 void main() {
   runApp(const MyApp());
@@ -12,11 +13,9 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Numi Personal Finance',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple, primary: const Color(0xFF673AB7)),
-        useMaterial3: true,
-        fontFamily: 'Roboto',
-      ),
+      theme: AppTheme.lightTheme,
+      darkTheme: AppTheme.darkTheme, 
+      themeMode: ThemeMode.system,
       home: const AppController(),
     );
   }
