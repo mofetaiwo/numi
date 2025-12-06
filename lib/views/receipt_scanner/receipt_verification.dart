@@ -252,7 +252,7 @@ class _ReceiptVerificationFormState extends State<_ReceiptVerificationForm> {
   
   Widget _buildCategoryDropdown(ThemeData theme, List<String> categoryNames) {
     return DropdownButtonFormField<String>(
-      value: _selectedCategory,
+      initialValue: _selectedCategory,
       decoration: InputDecoration(
         label: RichText(
           text: TextSpan(
@@ -331,12 +331,6 @@ class _ReceiptVerificationFormState extends State<_ReceiptVerificationForm> {
             )
           : const Icon(Icons.check_circle_outline),
       label: Text(vm.isLoading ? 'Saving...' : 'Save Transaction'),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: Theme.of(context).colorScheme.primary,
-        foregroundColor: Theme.of(context).colorScheme.onPrimary,
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      ),
     );
   }
 }

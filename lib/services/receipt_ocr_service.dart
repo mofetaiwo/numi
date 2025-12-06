@@ -4,6 +4,7 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_tesseract_ocr/flutter_tesseract_ocr.dart';
 import 'package:path_provider/path_provider.dart';
 import '../models/receipt_model.dart';
+import 'package:image/image.dart' as img;
 
 class TesseractService {
     static const String _language = 'eng';
@@ -11,6 +12,8 @@ class TesseractService {
     
     static bool _isInitialized = false;
     static String? _tessDataPath;
+
+    static const int _targetWidth = 1500;
 
     /// Loads the Tessract training data for English
     Future<String> initializeTesseract() async {
@@ -39,53 +42,75 @@ class TesseractService {
             return _tessDataPath!;
 
         } catch (e) {
-            print('Error initializing Tesseract: $e');
             // Clear path on failure
             _tessDataPath = null; 
             throw Exception('Failed to initialize Tesseract data files. Check assets/tessdata/ folder: $e');
         }
     }
 
+    /// Resizing image to improve runtime
+    Future<String> _preprocessImage(String imagePath) async {
+        final imageFile = File(imagePath);
+        
+        img.Image? originalImage = img.decodeImage(await imageFile.readAsBytes());
+
+        if (originalImage == null) {
+            throw Exception('Failed to decode image for preprocessing.');
+        }
+
+        // Only resize if the image is wider than the target
+        if (originalImage.width > _targetWidth) {
+            final resizedImage = img.copyResize(originalImage, width: _targetWidth);
+            
+            final dir = await getTemporaryDirectory();
+            final tempPath = '${dir.path}/resized_ocr_image_${DateTime.now().millisecondsSinceEpoch}.jpg';
+            final tempFile = File(tempPath);
+            
+            await tempFile.writeAsBytes(img.encodeJpg(resizedImage, quality: 90));
+            
+            // Return the path to the resized (pre-processed) image
+            return tempPath; 
+        }
+
+        // If no resizing is needed, return the original path
+        return imagePath;
+    }
+
     /// Runs Tesseract OCR on a given image file path.
     Future<String> runOcr(String imagePath) async {
-    // debugPrint('--- OCR Service: Starting runOcr function ---'); 
-    // debugPrint('Input imagePath: $imagePath'); 
-
     String? dataPath;
 
     try {
         // Attempt initialization
         dataPath = await initializeTesseract();
-        
+        final String preprocessedPath = await _preprocessImage(imagePath);
+
         // Check for initialization failure
         if (dataPath == "") {
-            // debugPrint('!!! ERROR: Tesseract initialization returned NULL dataPath.');
             throw Exception('Tesseract initialization failed to provide a valid data path.');
         }
 
-      //  debugPrint('TESSDATA_PREFIX (dataPath): $dataPath'); 
-
         final String result = await FlutterTesseractOcr.extractText(
-            imagePath,
+            preprocessedPath,
             language: _language,
             args: {
                 "psm": "6",
                 "TESSDATA_PREFIX": dataPath,
+                "load_system_dawg": "0", 
+                "load_freq_dawg": "0",
+                "preserve_interword_spaces": "0",
             }
         );
 
-        // debugPrint('OCR SUCCESS. Extracted Text (first 50 chars): ${result.substring(0, result.length < 50 ? result.length : 50)}'); 
         return result;
 
-    } catch (e, stack) {
-        // debugPrint('!!! CRITICAL OCR FAILURE !!!');
-        // debugPrint('Exception: $e');
-        // debugPrint('StackTrace: $stack');
-        
-       throw Exception('OCR Operation Failed: $e');
+    } catch (e) {
+        throw Exception('OCR Operation Failed: $e');
     }
 }
-
+    /// This OCR processing definity needs some work if this was a real released app.
+    /// If this was a real app, I would recommend the company fine-tune their own Computer Vision
+    /// model and ensure the privacy of their users receipts.
     /// Takes the raw OCR text and attempts to parse it into a structured ReceiptModel.
     ReceiptModel parseOcrResult(String ocrText, String originalPath) {
         // Basic text cleanup and splitting

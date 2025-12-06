@@ -48,6 +48,7 @@ dependencies:
   camera: ^0.10.5
   image_picker: ^1.0.4
   flutter_tesseract_ocr: ^0.4.20
+  image: ^4.1.7
   
   # Storage
   shared_preferences: ^2.2.2
@@ -71,6 +72,7 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  flutter_launcher_icons: ^0.13.1
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
@@ -79,6 +81,12 @@ dev_dependencies:
   # rules and activating additional ones.
   flutter_lints: ^3.0.1
   test: ^1.24.9
+
+# App Icon
+flutter_launcher_icons:
+  image_path: "assets/icon/numi_logo.png"
+  android: true
+
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

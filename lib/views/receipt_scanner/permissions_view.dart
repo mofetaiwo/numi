@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'camera_view.dart';
-import 'receipt_verification.dart';
+import 'receipt_verification.dart'; 
 import '../../models/receipt_model.dart';
 import '../../viewmodels/receipt_scanner/permissions_viewmodel.dart';
 
@@ -25,10 +24,6 @@ class _PermissionsPageState extends State<PermissionsPage> {
   void initState() {
     super.initState();
     _viewModel.addListener(_onViewModelChanged);
-    
-    SchedulerBinding.instance.addPostFrameCallback((_) {
-      _initialPermissionCheck();
-    });
   }
   
   @override
@@ -40,10 +35,6 @@ class _PermissionsPageState extends State<PermissionsPage> {
   
   void _onViewModelChanged() {
     setState(() {});
-  }
-
-  Future<void> _initialPermissionCheck() async {
-    await _viewModel.checkInitialPermissions();
   }
 
   /// When user presses "Take Photo" button
@@ -62,20 +53,18 @@ class _PermissionsPageState extends State<PermissionsPage> {
         _showSnackbar(_viewModel.errorMessage ?? 'Camera access denied.', isSuccess: false);
         break;
       default:
-        // No action needed for other states here
     }
   }
-
-  /// When user clicks "Upload from Photo Gallery" button
+  
+  /// When user presses "Upload from Photo Gallery" button
   Future<void> _handleGalleryTap() async {
-    final outcome = await _viewModel.handleGallerySelection();
+    final outcome = await _viewModel.requestGalleryPermissionAndUpload();
     if (!mounted) return;
 
     switch (outcome) {
       case PermissionActionOutcome.granted:
-        /// If Photo is found, process it into the app
         if (_viewModel.selectedReceipt != null) {
-          _launchReceiptVerification(_viewModel.selectedReceipt as ReceiptModel);
+          _launchReceiptVerification(_viewModel.selectedReceipt!);
         } else {
           _showSnackbar('File selection successful, but data is missing.', isSuccess: false);
         }
@@ -87,49 +76,51 @@ class _PermissionsPageState extends State<PermissionsPage> {
         _showSnackbar(_viewModel.errorMessage ?? 'Photo Gallery access denied.', isSuccess: false);
         break;
       case PermissionActionOutcome.selectionCancelled:
-        _showSnackbar('Photo selection cancelled.', isSuccess: false);
         break;
       case PermissionActionOutcome.error:
         _showSnackbar(_viewModel.errorMessage ?? 'An unknown error occurred during selection.', isSuccess: false);
         break;
     }
+    // Clear the error state in the VM after handling
+    _viewModel.clearProcessingState();
   }
 
   // NAVIGATION LOGIC
-  /// Launches camera when user clicks "Take Photo" and permission is granted
   void _launchCamera(BuildContext context) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const CameraViewPage()), 
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => CameraViewPage(viewModel: _viewModel),
+      ),
     );
   }
   
-  /// Navigates to receipt verfication page when picture is taken or selected and processed
-  /// to let the user make sure it is correct before adding it to the app
   void _launchReceiptVerification(ReceiptModel receipt) {
-    Navigator.push(
-      context,
+    // This pushes the verification page onto the stack, keeping the PermissionsPage underneath.
+    Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (context) => ReceiptVerificationPage(receiptData: receipt),
+        builder: (context) => ReceiptVerificationPage(receiptData: receipt), 
+      ),
+    );
+    // Clear the error state in the VM after successful navigation
+    _viewModel.clearProcessingState(); 
+  }
+
+  void _navigateToManualEntry(BuildContext context) {
+    // Implement navigation to manual entry page here
+    _showSnackbar('Navigating to Manual Entry...', isSuccess: true);
+  }
+
+  // UI UTILITIES
+  void _showSnackbar(String message, {bool isSuccess = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isSuccess ? Colors.green : Colors.red,
+        behavior: SnackBarBehavior.floating,
       ),
     );
   }
 
-  /// If camera or photo gallery permissions are not granted, the user can input the details
-  /// of their receipt manually with this
-  void _launchManualInput(BuildContext context) {
-    // Navigator.push(
-    //   context,
-    //   MaterialPageRoute(
-    //     builder: (context) => ReceiptVerificationPage(receiptData: ReceiptModel.empty('Manual Input')),
-    //   ),
-    // );
-  }
-
-  // UI METHODS
-  /// This dialog box appears if permission is denied. It gives the user the option to go
-  /// into settings and grant permissions to use the automatic receipt scanner or to 
-  /// manually add the receipt.
   void _showSettingsPrompt(BuildContext context, String resourceName) {
     final colorScheme = Theme.of(context).colorScheme;
     
@@ -174,7 +165,7 @@ class _PermissionsPageState extends State<PermissionsPage> {
             TextButton(
               onPressed: () {
                 Navigator.of(dialogContext).pop();
-                _launchManualInput(context);
+                _navigateToManualEntry(context);
               },
               child: const Text('Manual Input'),
             ),
@@ -201,190 +192,76 @@ class _PermissionsPageState extends State<PermissionsPage> {
       },
     );
   }
-  
-  /// Snackbar shown at the botton of the screen to alert the user of messages such as errors.
-  /// Changes color (green or red) according if the message is a success or an error
-  void _showSnackbar(String message, {bool isSuccess = false}) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final Color backgroundColor = isSuccess ? Colors.green.shade700 : colorScheme.error;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        duration: const Duration(seconds: 4),
-        backgroundColor: backgroundColor,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      ),
-    );
-  }
-
-  // MAIN BUILD METHOD
   @override
   Widget build(BuildContext context) {
-    if (_viewModel.isCheckingPermissions) {
-      return const _ReceiptScannerLoading(title: 'Checking Permissions');
-    }
 
     final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: colorScheme.surface,
-        elevation: 0,
+        title: const Text('Add Receipt'),
       ),
-      body: Container(
-        // surface color for slight contrast from default
-        color: colorScheme.surface, 
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(32.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Visual Header
-                ShaderMask(
-                  shaderCallback: (bounds) {
-                    return LinearGradient(
-                      colors: [colorScheme.primary, colorScheme.tertiary],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ).createShader(bounds);
-                  },
-                  child: const Icon(
-                    Icons.receipt_long,
-                    size: 96,
-                    color: Colors.white,
-                  ),
+      body: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 32.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // HEADER
+              Icon(
+                Icons.receipt_long,
+                size: 80,
+                color: colorScheme.primary,
+              ),
+              const SizedBox(height: 24),
+              Text(
+                'How would you like to add your receipt?',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: colorScheme.onSurface,
                 ),
-                const SizedBox(height: 32),
+              ),
+              const SizedBox(height: 40),
 
-                // Text
-                Text(
-                  'Capture Your Receipt',
-                  style: TextStyle(
-                    fontSize: 34,
-                    fontWeight: FontWeight.w900,
-                    color: colorScheme.onSurface,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  'Use the camera for instant capture or upload an existing image to log your expense.',
-                  style: TextStyle(
-                    fontSize: 17,
-                    color: colorScheme.onSurface,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 60),
+              // Take Photo Button
+              ElevatedButton.icon(
+                onPressed: _handleCameraTap,
+                icon: const Icon(Icons.photo_camera, size: 28),
+                label: const Text('Take Photo', style: TextStyle(fontSize: 18))
+              ),
+              const SizedBox(height: 16),
 
-                // Camera Button (Primary Action)
-                ElevatedButton.icon(
-                  onPressed: _handleCameraTap,
-                  icon: const Icon(Icons.photo_camera_rounded, size: 28),
-                  label: const Text(
-                    'Take Photo',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              // Upload from Gallary button
+              OutlinedButton.icon(
+                onPressed: _handleGalleryTap,
+                icon: const Icon(Icons.photo_library, size: 28),
+                label: const Text('Upload from Photo Gallery', style: TextStyle(fontSize: 18)),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: colorScheme.secondary,
+                  side: BorderSide(color: colorScheme.secondary, width: 2),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: colorScheme.primary,
-                    foregroundColor: colorScheme.onPrimary,
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                    minimumSize: const Size(double.infinity, 60),
-                    elevation: 6,
-                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
                 ),
-                const SizedBox(height: 20),
+              ),
+              const SizedBox(height: 40),
 
-                // Photo Gallery Button (Secondary Action)
-                OutlinedButton.icon(
-                  onPressed: _handleGalleryTap,
-                  icon: const Icon(Icons.photo_library_rounded, size: 28),
-                  label: const Text(
-                    'Upload from Photo Gallery',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: colorScheme.primary,
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                    side: BorderSide(color: colorScheme.primary, width: 2),
-                    minimumSize: const Size(double.infinity, 60),
-                  ),
+              // Manual Entry button
+              TextButton.icon(
+                onPressed: () => _navigateToManualEntry(context),
+                icon: const Icon(Icons.edit_note, size: 24),
+                label: const Text('Enter Receipt Details Manually'),
+                style: TextButton.styleFrom(
+                  foregroundColor: colorScheme.onSurface,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
-                
-                // Manual Entry Button (Third Action)
-                const SizedBox(height: 20),
-                TextButton(
-                  onPressed: () => _launchManualInput(context),
-                  child: Text(
-                    'Manual Entry',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: colorScheme.primary,
-                      decoration: TextDecoration.underline,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// Loading Receipt Scanner Widget
-class _ReceiptScannerLoading extends StatelessWidget {
-  final String title;
-  const _ReceiptScannerLoading({this.title = 'Checking Scanner Status'});
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Scaffold(
-      body: Container(
-        color: colorScheme.background,
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(40.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.cached, size: 80, color: colorScheme.secondary),
-                const SizedBox(height: 24),
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    color: colorScheme.onBackground,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 16),
-                LinearProgressIndicator(
-                  minHeight: 8,
-                  borderRadius: BorderRadius.circular(4),
-                  backgroundColor: colorScheme.secondaryContainer,
-                  color: colorScheme.secondary,
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Preparing receipt scanner and checking existing permissions.',
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: colorScheme.onBackground.withOpacity(0.7),
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
