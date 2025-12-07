@@ -1,135 +1,137 @@
-# Numi – Personal Finance Tracker
+# Numi - Android Personal Finance Tracker
 
-Numi is a cross-platform personal finance application built using Flutter and the MVVM architecture. The application allows users to track income and expenses, store financial records using Firebase, scan receipts using the device camera, and view spending insights through visual analytics. The project was developed as a collaborative software assignment with a focus on scalable architecture, mobile UI design, and practical device integration.
+A comprehensive personal finance management app built with Flutter using MVVM architecture and Firebase backend.
 
----
+## App Overview
+Numi helps users track expenses, manage budgets, and achieve financial goals through intelligent categorization and visual insights. The app follows MVVM architecture with clear separation of concerns and implements real-time data synchronization with Firebase.
 
-## 1. Project Goals
+## Screenshots
+![dashboard.png](screenshots/dashboard.png)
+![transactions.png](screenshots/transactions.png)
+![add_transaction.png](screenshots/add_transaction.png)
+![budget.png](screenshots/budget.png)
+![analytics.png](screenshots/analytics.png)
 
-### Functional Goals
-- Allow users to manually add income and expense transactions.
-- Support receipt-based data entry through camera scanning and text extraction.
-- Display spending summaries, total income, total expenses, and net values.
-- Provide visual analytics showing category-level spending.
-- Store data using Firebase for persistent access.
+## Features
+- Expense and income tracking with categorization
+- Budget management with visual progress indicators
+- Receipt scanning using device camera
+- Visual analytics with animated charts
+- Real-time data synchronization
+- Smooth animations and gesture controls
+- Offline support with local caching
 
-### Architectural Goals
-- Use the MVVM design pattern to separate UI, business logic, and data access.
-- Keep UI free of business and database logic.
-- Use ViewModels to manage state, compute financial totals, and communicate with Firebase.
-- Use Services to handle camera access, database operations, and external resources.
-- Make each component independently testable.
+## Technical Architecture
 
-### User Experience Goals
-- Apply gesture-based interactions such as swipe deletion and pull-to-refresh.
-- Use responsive animations to make information easier to read.
-- Provide a consistent interface across multiple screens using shared widgets.
+### MVVM Implementation
+```
+┌─────────────────────────────────────────────────┐
+│                     Views                       │
+│  (Screens, Widgets - UI Only, No Business Logic)│
+└───────────────────────┬─────────────────────────┘
+                        │ Data Binding
+┌───────────────────────▼─────────────────────────┐
+│                   ViewModels                    │
+│   (Business Logic, State Management, Commands)  │
+└───────────────────────┬─────────────────────────┘
+                        │
+┌───────────────────────▼─────────────────────────┐
+│                     Models                      │
+│             (Data Structures Only)              │
+└─────────────────────────────────────────────────┘
+```
 
----
+### Key Components
 
-## 2. Technology Overview
+**Models**
+- `TransactionModel`: Transaction data structure
+- `BudgetModel`: Budget data structure
+- Pure data classes with no business logic
 
-| Component | Tools |
-|-----------|-------|
-| Framework | Flutter (Dart) |
-| Architecture | MVVM |
-| Storage | Firebase |
-| Device Feature | Camera-based receipt scanning |
-| UI Layer | Flutter Material 3 |
-| Analytics | Custom bar chart animations |
-| Testing | Unit and widget tests |
+**ViewModels**
+- `TransactionViewModel`: Manages transaction state and operations
+- `BudgetViewModel`: Handles budget logic and calculations
+- Implements `ChangeNotifier` for state management
+- Contains all business logic and async operations
 
----
+**Views**
+- `HomeScreen`: Main navigation and dashboard
+- `TransactionsScreen`: Transaction list with search/filter
+- `BudgetScreen`: Budget management interface
+- `AnalyticsScreen`: Charts and spending insights
+- Purely declarative UI bound to ViewModels
 
-## 3. MVVM Architecture
+## Advanced Features
 
-Numi follows the Model–View–ViewModel structure to maintain clear separation between interface, logic, and data:
+### 1. Animations 
+- Splash screen scale and fade animations
+- Card entrance animations with staggered delays
+- Animated charts in analytics screen
+- Navigation transition animations
+- Button scale animations on interaction
+- Progress bar animations in budgets
 
-- **Models** define the structure of financial data (e.g., transaction, budget).
-- **ViewModels** contain application logic, including data validation, calculations, and calls to services.
-- **Views (Screens)** are responsible only for layout and user interaction.
-- **Services** handle Firebase operations, camera usage, and external tasks.
+### 2. Gestures 
+- **Swipe to delete**: Dismissible transactions with confirmation
+- **Pull to refresh**: RefreshIndicator on all list views
+- **Tap feedback**: Visual and haptic response on interactions
+- **Date picker gestures**: Interactive calendar selection
+- **Category selection**: Chip selection with feedback
 
-This structure prevents UI code from depending directly on Firebase or camera logic, making the application easier to maintain and test.
+### 3. Hardware Integration 
+- **Camera**: Receipt capture using device camera
+- **Gallery**: Image picker for receipt attachments
+- **Haptic Feedback**: Vibration on important actions
+    - Transaction deletion
+    - Category selection
+    - Budget warnings
 
----
+## Asynchronous Programming
+- `async/await` for all Firebase operations
+- Stream-based real-time updates from Firestore
+- Loading states during data fetching
+- Error handling with user feedback
+- Background image processing for receipts
 
-## 4. Project Structure
+## Build & Run Instructions
 
+### Prerequisites
+- Flutter SDK 3.0+
+- Android Studio / VS Code
+- Firebase project configured
 
----
+### Setup
+1. Clone the repository:
+```bash
+git clone https://github.com/yourusername/numi.git
+cd numi
+```
 
-## 5. Screen Descriptions
+2. Install dependencies:
+```bash
+flutter pub get
+```
 
-### HomeScreen
-This screen provides an overview of the user's current financial situation. It displays summary cards for income, expenses, and net balance. Each card uses a custom widget and applies animations to draw attention to total values. Quick navigation buttons allow the user to jump to transactions or analytics. Tapping the net value also leads to analytics.
+3. Configure Firebase:
+    - Create Firebase project at console.firebase.google.com
+    - Add Android app with package: `com.mpx.numi`
+    - Download `google-services.json` to `android/app/`
+    - Enable Anonymous Authentication
+    - Enable Firestore Database
 
-### TransactionsScreen
-This screen lists all recorded transactions using a scrollable view. Each item is shown using a reusable component (`TransactionTile`). The screen supports swipe-to-delete, which removes a transaction and confirms the action using a snackbar. Pull-to-refresh allows the user to manually refresh the list. If no data is available, a placeholder widget (`EmptyState`) explains that no transactions exist yet.
+4. Run the app:
+```bash
+flutter run
+```
 
-### AddTransactionScreen
-This screen provides a form for entering a new income or expense. It validates user input and ensures a valid amount is entered. A date picker is provided for accuracy, and categories are selected through a dropdown menu. Optional notes can be entered, and a button completes the submission. In the current version, the submission triggers a confirmation snackbar, but the logic is prepared for ViewModel integration.
+## Testing
 
-### AnalyticsScreen
-This screen shows how spending is distributed across categories. A bar chart is drawn using animated widgets, gradually increasing bar heights to make the visualization easier to follow. Actual numerical values are shown above each bar, and a list summarizes category totals below the graph.
+### Run Tests
+```bash
+# All tests
+flutter test
 
----
-
-## 6. Custom Widgets
-
-- **SummaryCard:** Displays key statistics such as income, expenses, or net values. Can also act as a navigation button through an optional callback.
-- **TransactionTile:** Shows the details of a single transaction, including category, date, and the amount formatted and color-coded.
-- **SectionHeader:** Standard title format used across multiple screens for consistency.
-- **EmptyState:** Shown when there is no data to display, providing explanatory text and an icon.
-
-Using reusable widgets reduces code duplication and keeps the UI consistent.
-
----
-
-## 7. Animations and Gestures
-
-| Feature | Purpose | Implementation |
-|--------|---------|----------------|
-| Fade and scale on summary cards | Draw attention to important information | AnimatedOpacity, AnimatedScale |
-| Animated bar graph | Gradual data visualization | TweenAnimationBuilder |
-| Swipe to delete | Efficient list modification | Dismissible |
-| Pull to refresh | Familiar mobile behavior and manual refresh | RefreshIndicator |
-| Snackbar confirmation | Text feedback for user actions | ScaffoldMessenger |
-
-The goal of these features is to improve clarity and interaction, not simply aesthetic appeal.
-
----
-
-## 8. Firebase and Data Handling
-
-Firebase is responsible for storing transaction data. ViewModels call Firebase service functions to retrieve, add, update, and delete transaction records. This ensures that UI files do not directly use Firebase libraries, making future changes easier.
-
-Typical ViewModel responsibilities include:
-- Fetching all transactions from Firebase
-- Deleting transactions based on user gestures
-- Calculating totals such as net income and category totals
-
----
-
-## 9. Camera and Receipt Scanning
-
-The camera service enables users to take a picture of a receipt. Once captured, the image can be processed by an OCR parser to identify total amounts and other details. The resulting data is passed to the ViewModel to create a new financial entry. Keeping these features in services allows camera logic to change without modifying the UI.
-
----
-
-## 10. Testing
-
-Testing focuses on validating data logic and ensuring UI components render correctly:
-
-- **Unit tests** verify calculations in the ViewModels (income, expenses, net calculations).
-- **Widget tests** confirm that custom components render correctly and respond to gestures.
-- **Basic integration tests** ensure the main navigation routes launch without errors.
-
----
-
-## 11. Installation and Setup
-
-### Clone the Repository
-
-
-
+# Specific test file
+flutter test test/viewmodel_test.dart  # Contains 1 test
+flutter test test/widget_test.dart  # Contains 3 tests
+```
