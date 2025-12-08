@@ -73,7 +73,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [Colors.blue[400]!, Colors.blue[600]!],
+          colors: [Colors.blue[700]!, Colors.blue[700]!],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -93,8 +93,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildSummaryItem('Income', transactionVM.totalIncome, Colors.green),
-              _buildSummaryItem('Expenses', transactionVM.totalExpenses, Colors.red),
+              _buildSummaryItem('Income', transactionVM.totalIncome, Colors.green[400]!),
+              _buildSummaryItem('Expenses', transactionVM.totalExpenses, Colors.red[200]!),
               _buildSummaryItem('Balance', transactionVM.balance, Colors.white),
             ],
           ),

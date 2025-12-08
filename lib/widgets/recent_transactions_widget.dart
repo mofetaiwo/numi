@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../viewmodels/transaction_viewmodel.dart';
 import '../models/transaction_model.dart';
-import 'transaction_list_item.dart';
 import '../views/transactions_screen.dart';
 
 class RecentTransactionsWidget extends StatefulWidget {
