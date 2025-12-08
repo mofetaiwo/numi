@@ -64,7 +64,7 @@ Numi helps users track expenses, manage budgets, and achieve financial goals thr
 ## Advanced Features
 
 ### 1. Animations 
-- Splash screen scale and fade animations
+- Splash screen fade animations
 - Card entrance animations with staggered delays
 - Animated charts in analytics screen
 - Navigation transition animations
@@ -103,7 +103,7 @@ Numi helps users track expenses, manage budgets, and achieve financial goals thr
 ### Setup
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/numi.git
+git clone https://github.com/mofetaiwo/numi.git
 cd numi
 ```
 

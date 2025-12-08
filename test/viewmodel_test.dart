@@ -1,6 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:numi/models/transaction_model.dart';
-import 'package:numi/models/budget_model.dart';
 
 // Mock ViewModel for testing core business logic without Firebase
 class MockTransactionViewModel {

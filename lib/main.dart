@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:numi/views/home_screen.dart';
 import 'package:provider/provider.dart';
 import 'viewmodels/transaction_viewmodel.dart';
 import 'viewmodels/budget_viewmodel.dart';
 import 'services/firebase_service.dart';
-import 'views/splash_screen.dart';
 import 'utils/theme.dart';
 
 void main() async {
@@ -44,7 +44,7 @@ class MyApp extends StatelessWidget {
         theme: AppTheme.lightTheme,
         darkTheme: AppTheme.darkTheme,
         themeMode: ThemeMode.system,
-        home: SplashScreen(),
+        home: HomeScreen(),
         debugShowCheckedModeBanner: false,
       ),
     );
